@@ -93,6 +93,16 @@ else {
   if (!histTeams.some((t) => ["Inter", "Milan", "Juventus", "Napoli"].includes(t))) fail("Storico: nessuna squadra nota nelle giornate passate");
 }
 
+// regressione: aprire una partita passata dallo Storico (prima: "L'evento ESPN non è più disponibile")
+{
+  const hist = page.locator("details.giornata").first();
+  await hist.locator(".day-row").first().click();
+  await page.waitForSelector('.scoreboard, .panel h2:has-text("Errore")', { timeout: 30000 });
+  if (!(await page.locator(".scoreboard").count())) fail("Storico: partita passata → 'evento non più disponibile'");
+  else console.log("  Storico: partita passata aperta (scoreboard ok)");
+  await page.click('[data-act="back"]');
+}
+
 // un 404 (es. favicon) non deve uccidere il server
 {
   const a = await fetch(`http://127.0.0.1:${server.address().port}/nope-404`);

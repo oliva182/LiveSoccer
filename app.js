@@ -126,8 +126,18 @@ async function loadLanding() {
   S.lastUpdated = new Date();
 }
 
+/* evento già in memoria (stagione) prima di battere l'API: ±2 giorni non coprono lo Storico */
+async function resolveMatch(id) {
+  const lg = S.sport || S.league;
+  if (S.season && S.season.slug === lg) {
+    const ev = S.season.events.find((e) => String(e.id) === String(id));
+    if (ev) return { event: ev, offset: 0, slug: S.season.slug };
+  }
+  return findEvent(id);
+}
+
 async function loadMatch() {
-  const found = await findEvent(S.matchId);
+  const found = await resolveMatch(S.matchId);
   if (!found) throw new Error(GONE_MSG);
   S.match = found.event;
   S.dayOffset = found.offset;
@@ -194,7 +204,8 @@ async function boot() {
   S.view = ["oggi", "cal", "hist"].includes(ssGet(SS_VIEW)) ? ssGet(SS_VIEW) : "oggi";
   render();
   if (S.matchId) {
-    const found = await findEvent(S.matchId).catch(() => null);
+    if (S.view !== "oggi") await loadSeason().catch(() => {});
+    const found = await resolveMatch(S.matchId).catch(() => null);
     if (!found) { ssDel(SS_EVENT); S.matchId = null; }
     else {
       S.match = found.event; S.dayOffset = found.offset;
