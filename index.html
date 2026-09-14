@@ -285,12 +285,19 @@ function seasonGroupsAll() {
   // (le prime restano, il resto diventa la week successiva facendo scalare il numeramento)
   const exp = (LEAGUES.find((l) => l.slug === S.league) || {}).exp || 0;
   const todayStr = new Date().toISOString().slice(0, 10);
+  // Carry: il resto di una week (es. 10a partita di Ligue 1 giocata di giovedì) passa alla week successiva
+  // invece di creare una giornata da 1 partita; una week da 2x exp (turno infrasettimanale) si divide in due
   const flat = [];
-  for (const [key, evs] of [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    evs.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const step = exp || evs.length;
-    for (let i = 0; i < evs.length; i += step) flat.push({ key: i ? `${key}-${i / step + 1}` : key, evs: evs.slice(i, i + step) });
+  const emit = (evs) => { const d0 = evs[0].date.slice(0, 10); let k = d0; for (let i = 2; flat.some((f) => f.key === k); i++) k = `${d0}-${i}`; flat.push({ key: k, evs }); };
+  let carry = [];
+  for (const [, evs] of [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (!exp) { evs.sort((a, b) => String(a.date).localeCompare(String(b.date))); emit(evs); continue; }
+    const pool = [...carry, ...evs].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    carry = [];
+    while (pool.length > exp) emit(pool.splice(0, exp));
+    carry = pool;
   }
+  if (carry.length) emit(carry);
   const openIdx = flat.reduce((acc, g, i) => (g.evs[0].date.slice(0, 10) <= todayStr ? i : acc), -1);
   return flat.map((g, i) => {
     const live = g.evs.filter((e) => e.competitions?.[0]?.status?.type?.state === "in").length;
@@ -458,7 +465,7 @@ function seasonPanelHtml() {
   const tk = todayKey();
   let groups, openKey, emptyTxt;
   if (cup) {
-    if (S.view === "cal") { groups = all.filter((g) => g.key >= tk); openKey = tk; emptyTxt = "prossima"; }
+    if (S.view === "cal") { const nk = weekKey(new Date(Date.now() + 7 * 864e5).toISOString(), S.league); groups = all.filter((g) => g.key >= tk); openKey = (groups.find((g) => g.key < nk) || {}).key; emptyTxt = "prossima"; }
     else { groups = all.filter((g) => g.key < tk).reverse(); openKey = groups[0]?.key; emptyTxt = "registrata"; }
   } else { groups = all; openKey = tk; emptyTxt = "prossima"; }
   const dt = (ev) => (ev.date ? `${new Date(ev.date).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · ${kickoffTime(ev.date)}` : "");
