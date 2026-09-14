@@ -457,7 +457,7 @@ function seasonPanelHtml() {
   groups = groups.map((g) => ({ ...g, open: cup ? g.key === openKey : g.open, evs: g.evs.map((e) => dayRowHtml(e, cup ? null : dt(e))) }));
   if (!groups.length) return `<section class="panel"><h2>${title}</h2><p class="empty-msg">Nessuna giornata ${emptyTxt} in questa stagione.</p></section>`;
   const sec = (g) => `<details class="giornata" ${g.open ? "open" : ""}>
-    <summary>${cup ? `<span class="g-date">${esc(g.label)}</span>` : `<span class="g-date">${esc(g.label)}</span><b class="g-num">Week ${g.n}</b>`}<span class="g-meta">${esc(cup && S.view === "hist" ? `${g.evs.length} risultati` : g.meta)}</span></summary>
+    <summary>${cup ? `<span class="g-date">${esc(g.label)}</span>` : `<span class="g-date">${esc(g.label)}</span><b class="g-num">Giornata ${g.n}</b>`}<span class="g-meta">${esc(cup && S.view === "hist" ? `${g.evs.length} risultati` : g.meta)}</span></summary>
     <div class="day-list">${g.evs.join("")}</div>
   </details>`;
   return `<section class="panel"><h2>${title}</h2><div class="giornate">${groups.map(sec).join("")}</div></section>`;
@@ -552,7 +552,7 @@ function weekPanelHtml() {
   const next = g ? (idx + 1 < all.length ? all[idx + 1] : null) : (idx < all.length ? all[idx] : null);
   const navBtn = (dir, key, label) => `<button type="button" class="lg-tab" data-nav="${dir}"${key ? ` data-key="${esc(key)}"` : " disabled"}>${label}</button>`;
   const nav = `<div class="wk-nav">${navBtn("prev", prev?.key, "‹ Giornata precedente")}${navBtn("next", next?.key, "Giornata successiva ›")}</div>`;
-  const title = g ? `Week ${g.n} · ${g.label}` : "Nessuna partita in questa settimana";
+  const title = g ? `Giornata ${g.n} · ${g.label}` : "Nessuna partita in questa settimana";
   const body = g
     ? `<div class="wk-cur"><b>${esc(title)}</b><span class="g-meta">${esc(g.meta)}</span></div><div class="day-list">${g.evs.map((e) => dayRowHtml(e, dt(e))).join("")}</div>`
     : `<p class="empty-msg">Nessuna partita in questa settimana.</p>`;
