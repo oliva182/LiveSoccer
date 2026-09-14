@@ -14,7 +14,7 @@ const STANDINGS_TTL = 15 * 60 * 1000;
 // stesso origin: server.mjs proxy /api/* → site.api.espn.com (il WAF ESPN blocca i client browser)
 const BASE = (slug) => `/api/apis/site/v2/sports/soccer/${slug}`;
 const STANDINGS_URL = (slug) => `/api/apis/v2/sports/soccer/${slug}/standings`;
-const SS_EVENT = "cldash_espn_event_id", SS_SPORT = "cldash_espn_sport", SS_LEAGUE = "cldash_espn_league", SS_THEME = "cldash_theme";
+const SS_EVENT = "cldash_espn_event_id", SS_SPORT = "cldash_espn_sport", SS_LEAGUE = "cldash_espn_league", SS_THEME = "cldash_theme", SS_VIEW = "cldash_view";
 const GONE_MSG = "L'evento ESPN non è più disponibile.";
 const OFFSETS = [0, -1, 1, -2, 2];
 
@@ -23,6 +23,7 @@ const S = {
   match: null, summary: null, stats: null, standings: null,
   pollMs: 60000, calls: 0, lastUpdated: null, error: null, lastScore: null,
   events: [], dayOffset: 0, landingReady: false,
+  view: "oggi", season: null,
 };
 let pollTimer = null, cdTimer = null;
 
@@ -72,7 +73,42 @@ async function findEvent(id) {
   return null;
 }
 
+/* ===== stagione (Calendario/Storico) ===== */
+async function loadSeason() {
+  if (S.season && S.season.slug === S.league && Date.now() - S.season.at < STANDINGS_TTL) return;
+  const now = new Date();
+  const y = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+  const data = await apiGet(`${BASE(S.league)}/scoreboard?dates=${y}0701-${y + 1}0630&limit=500`);
+  S.season = { slug: S.league, at: Date.now(), events: data.events || [] };
+}
+
+const weekKey = (d) => { const dt = new Date(d); const day = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - day); return dt.toISOString().slice(0, 10); };
+const todayKey = () => weekKey(new Date());
+const dayFmt = (d) => new Date(d).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+
+function seasonGroups(kind) {
+  const evs = S.season && S.season.slug === S.league ? S.season.events : [];
+  const tk = todayKey();
+  const map = new Map();
+  for (const ev of evs) {
+    const k = weekKey(ev.date);
+    if (kind === "cal" ? k < tk : k >= tk) continue;
+    (map.get(k) || map.set(k, []).get(k)).push(ev);
+  }
+  const groups = [...map.entries()].sort((a, b) => (kind === "cal" ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0])));
+  const firstKey = groups[0]?.[0];
+  return groups.map(([key, evs]) => {
+    evs.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const live = evs.filter((e) => e.competitions?.[0]?.status?.type?.state === "in").length;
+    const d0 = new Date(evs[0].date), d1 = new Date(evs[evs.length - 1].date);
+    const label = d0.toISOString().slice(0, 10) === d1.toISOString().slice(0, 10) ? dayFmt(d0) : `${dayFmt(d0)} – ${dayFmt(d1)}`;
+    const meta = live ? `${evs.length} partite · ${live} in corso` : (kind === "hist" ? `${evs.length} risultati` : `${evs.length} partite`);
+    return { key, label, meta, evs, open: kind === "cal" ? key === tk : key === firstKey };
+  });
+}
+
 async function loadLanding() {
+  if (S.view !== "oggi") { await loadSeason(); S.landingReady = true; S.lastUpdated = new Date(); return; }
   const day = await fetchDay(S.league, 0);
   let entries = [];
   const c = S.standings;
@@ -155,6 +191,7 @@ async function boot() {
   S.matchId = ssGet(SS_EVENT) || null;
   S.sport = validLeag(ssGet(SS_SPORT));
   S.league = validLeag(ssGet(SS_LEAGUE)) || LEAGUES[0].slug;
+  S.view = ["oggi", "cal", "hist"].includes(ssGet(SS_VIEW)) ? ssGet(SS_VIEW) : "oggi";
   render();
   if (S.matchId) {
     const found = await findEvent(S.matchId).catch(() => null);
@@ -184,6 +221,23 @@ async function poll() { await apply(); }
 /* ===== render LANDING (§9) ===== */
 function tabsHtml() {
   return `<div class="lg-tabs">${LEAGUES.map((l) => `<button type="button" class="lg-tab${S.league === l.slug ? " active" : ""}" data-league="${esc(l.slug)}">${esc(l.name)}</button>`).join("")}</div>`;
+}
+
+function viewTabsHtml() {
+  const views = [["oggi", "Oggi"], ["cal", "Calendario"], ["hist", "Storico"]];
+  return `<div class="view-tabs">${views.map(([k, label]) => `<button type="button" class="view-tab${S.view === k ? " active" : ""}" data-view="${k}">${label}</button>`).join("")}</div>`;
+}
+
+function seasonPanelHtml() {
+  const kind = S.view;
+  const title = kind === "cal" ? `Calendario · ${esc(leagueName(S.league))}` : `Storico · ${esc(leagueName(S.league))}`;
+  const groups = seasonGroups(kind);
+  if (!groups.length) return `<section class="panel"><h2>${title}</h2><p class="empty-msg">Nessuna giornata ${kind === "cal" ? "prossima" : "registrata"} in questa stagione.</p></section>`;
+  const sec = (g) => `<details class="giornata" ${g.open ? "open" : ""}>
+    <summary>${esc(g.label)}<span class="g-meta">${esc(g.meta)}</span></summary>
+    <div class="day-list">${g.evs.map(dayRowHtml).join("")}</div>
+  </details>`;
+  return `<section class="panel"><h2>${title}</h2><div class="giornate">${groups.map(sec).join("")}</div></section>`;
 }
 
 function dayRowHtml(ev) {
@@ -264,9 +318,10 @@ function footerHtml() {
 }
 
 function renderLanding() {
-  let h = tabsHtml();
+  let h = tabsHtml() + viewTabsHtml();
   if (!S.landingReady) h += bootPanelHtml();
-  else { h += dayPanelHtml() + standingsPanelHtml() + (S.landingReady ? errBannerHtml() : ""); }
+  else if (S.view === "oggi") h += dayPanelHtml() + standingsPanelHtml() + errBannerHtml();
+  else h += seasonPanelHtml() + errBannerHtml();
   h += footerHtml();
   return h;
 }
@@ -514,6 +569,7 @@ function wireActions() {
     row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMatch(row.dataset.match); } });
   }
   for (const t of app.querySelectorAll(".lg-tab")) t.addEventListener("click", () => switchLeague(t.dataset.league));
+  for (const v of app.querySelectorAll(".view-tab")) v.addEventListener("click", () => switchView(v.dataset.view));
   const back = app.querySelector('[data-act="back"]');
   if (back) back.addEventListener("click", goBack);
   const retry = app.querySelector('[data-act="retry"]');
@@ -529,6 +585,13 @@ function wireActions() {
 function switchLeague(slug) {
   S.league = slug; ssSet(SS_LEAGUE, slug);
   S.events = []; S.landingReady = false;
+  apply();
+}
+
+function switchView(view) {
+  if (S.view === view) return;
+  S.view = view; ssSet(SS_VIEW, view);
+  S.landingReady = false;
   apply();
 }
 

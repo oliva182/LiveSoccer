@@ -31,6 +31,17 @@
   .lg-tab{width:auto;margin:0;padding:9px 16px;border-radius:999px;background:#0e1526;color:var(--dim);border:1px solid var(--line);font-size:.9rem;font-weight:600;cursor:pointer;transition:filter .15s}
   .lg-tab:hover{filter:brightness(1.25)}
   .lg-tab.active{background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;border-color:transparent}
+  .view-tabs{display:flex;gap:6px;margin-bottom:14px}
+  .view-tab{flex:1;padding:8px 10px;border-radius:9px;background:var(--panel-2);color:var(--dim);border:1px solid var(--line);font-size:.85rem;font-weight:600;cursor:pointer}
+  .view-tab.active{background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;border-color:transparent}
+  .giornate{display:flex;flex-direction:column;gap:10px}
+  .giornata{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .giornata summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-weight:700;font-size:.9rem;list-style:none}
+  .giornata summary::-webkit-details-marker{display:none}
+  .giornata summary::before{content:"▸";color:var(--dim);margin-right:2px}
+  .giornata[open] summary::before{content:"▾"}
+  .g-meta{font-weight:400;font-size:.78rem;color:var(--dim);text-transform:none;letter-spacing:.3px}
+  .giornata .day-list{padding:4px 12px 12px}
   .empty-msg{text-align:center;padding:28px 10px;color:var(--dim)}
 
   .tbl-wrap{overflow:auto;max-height:430px}

@@ -55,19 +55,42 @@ await page.waitForSelector(".day-row", { timeout: 30000 });
 await page.click(".day-row");
 await page.waitForSelector(".scoreboard", { timeout: 30000 });
 console.log("  view partita: scoreboard renderizzato");
+await page.click('[data-act="back"]');
+await page.waitForSelector(".view-tab", { timeout: 30000 });
 
-// tab Calendario/Storico (step 3-4)
-for (const view of ["Calendario", "Storico"]) {
-  const btn = page.locator(`.lg-tab:has-text("${view}")`);
-  if (await btn.count()) {
-    await btn.first().click();
-    await page.waitForTimeout(1500);
-    const days = await page.$$eval(".day-group", (g) => g.length);
-    console.log(`  ${view}: ${days} giornate`);
-    if (!days) fail(`tab ${view} non mostra giornate`);
-  } else {
-    console.log(`  ${view}: tab non presente (ok se prima step 3/4)`);
-  }
+// step 3-4: view Oggi/Calendario/Storico con giornate reali (Serie A selezionata sopra)
+const viewTabs = await page.locator(".view-tab").count();
+if (viewTabs < 3) fail(`view tabs Oggi/Calendario/Storico: ${viewTabs}/3`);
+
+// Calendario: giornate future, la corrente aperta, collasso nativo <details>
+await page.click('.view-tab:has-text("Calendario")');
+await page.waitForSelector("details.giornata, .empty-msg", { timeout: 30000 });
+const calGroups = page.locator("details.giornata");
+const calCount = await calGroups.count();
+console.log(`  Calendario: ${calCount} giornate`);
+if (calCount < 1) fail("Calendario: nessuna giornata renderizzata");
+else {
+  if (!(await calGroups.first().evaluate((d) => d.open))) fail("Calendario: giornata corrente non aperta");
+  const calTeams = await calGroups.first().locator(".day-row .dr-team span").allTextContents();
+  if (!calTeams.some((t) => ["Inter", "Milan", "Juventus", "Napoli"].includes(t))) fail("Calendario: nessuna squadra nota nella giornata corrente");
+  const before = await calGroups.first().evaluate((d) => d.open);
+  await calGroups.first().locator("summary").click();
+  const after = await calGroups.first().evaluate((d) => d.open);
+  if (before === after) fail("Calendario: collasso giornata non funziona");
+}
+
+// Storico: risultati passati, giornata piu recente aperta
+await page.click('.view-tab:has-text("Storico")');
+await page.waitForSelector("details.giornata, .empty-msg", { timeout: 30000 });
+const histGroups = page.locator("details.giornata");
+const histCount = await histGroups.count();
+console.log(`  Storico: ${histCount} giornate`);
+if (histCount < 1) fail("Storico: nessuna giornata renderizzata");
+else {
+  const scores = await histGroups.first().locator(".day-row .dr-score").allTextContents();
+  if (!scores.some((s) => /\d+\s*:/.test(s))) fail("Storico: nessun risultato (score) nelle giornate passate");
+  const histTeams = await histGroups.first().locator(".day-row .dr-team span").allTextContents();
+  if (!histTeams.some((t) => ["Inter", "Milan", "Juventus", "Napoli"].includes(t))) fail("Storico: nessuna squadra nota nelle giornate passate");
 }
 
 // un 404 (es. favicon) non deve uccidere il server
