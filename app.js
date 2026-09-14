@@ -3,11 +3,17 @@
 const LEAGUES = [
   { slug: "uefa.champions", name: "Champions League" },
   { slug: "uefa.europa", name: "Europa League" },
+  { slug: "uefa.europa.conf", name: "Conference League" },
   { slug: "ita.1", name: "Serie A" },
+  { slug: "eng.1", name: "Premier League" },
+  { slug: "esp.1", name: "La Liga" },
+  { slug: "ger.1", name: "Bundesliga" },
+  { slug: "fra.1", name: "Ligue 1" },
 ];
 const STANDINGS_TTL = 15 * 60 * 1000;
-const BASE = (slug) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}`;
-const STANDINGS_URL = (slug) => `https://site.api.espn.com/apis/v2/sports/soccer/${slug}/standings`;
+// stesso origin: server.mjs proxy /api/* → site.api.espn.com (il WAF ESPN blocca i client browser)
+const BASE = (slug) => `/api/apis/site/v2/sports/soccer/${slug}`;
+const STANDINGS_URL = (slug) => `/api/apis/v2/sports/soccer/${slug}/standings`;
 const SS_EVENT = "cldash_espn_event_id", SS_SPORT = "cldash_espn_sport", SS_LEAGUE = "cldash_espn_league", SS_THEME = "cldash_theme";
 const GONE_MSG = "L'evento ESPN non è più disponibile.";
 const OFFSETS = [0, -1, 1, -2, 2];
