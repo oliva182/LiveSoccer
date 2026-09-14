@@ -24,11 +24,37 @@ const tabs = await page.$$eval(".lg-tab", (ts) => ts.map((t) => t.textContent.tr
 console.log("  tab leghe:", tabs.join(" | "));
 if (tabs.length !== expectedTabs) fail(`attese ${expectedTabs} tab, trovate ${tabs.length}`);
 
-// ogni tab apre una giornata senza crash
+// ogni tab apre una giornata senza crash, e i dati ESPN arrivano davvero (scoreboard + classifica via CLI)
+let totalMatches = 0;
 for (const label of tabs) {
   await page.click(`.lg-tab:has-text("${label}")`);
+  await page.waitForSelector(".day-row, .empty-msg", { timeout: 30000 });
   await page.waitForTimeout(1200);
+  const matches = await page.$$eval(".day-row", (els) => els.length);
+  const clsRows = await page.$$eval("table.cls tbody tr", (trs) => trs.length);
+  console.log(`  ${label}: ${matches} partite, ${clsRows} righe classifica`);
+  totalMatches += matches; // ok se 0: oggi la lega potrebbe non giocare
+  if (!clsRows) fail(`${label}: classifica vuota`);
 }
+if (!totalMatches) fail("nessuna partita caricata in nessuna lega");
+
+// route summary: apri una partita — il view della partita deve rendersi senza errori
+const port = server.address().port;
+{
+  const sb = await (await fetch(`http://127.0.0.1:${port}/api/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=${new Date().toISOString().slice(0, 10).replace(/-/g, "")}&limit=5`)).json();
+  const ev = (sb.events || [])[0];
+  if (!ev) fail("summary: nessuna partita ita.1 per il probe");
+  else {
+    const sum = await (await fetch(`http://127.0.0.1:${port}/api/apis/site/v2/sports/soccer/ita.1/summary?event=${ev.id}`)).json();
+    if (!sum.boxscore && !sum.keyEvents) fail("summary: payload senza boxscore né keyEvents");
+    console.log(`  summary probe: event ${ev.id} → boxscore=${!!sum.boxscore} keyEvents=${(sum.keyEvents || []).length}`);
+  }
+}
+await page.click('.lg-tab:has-text("Serie A")');
+await page.waitForSelector(".day-row", { timeout: 30000 });
+await page.click(".day-row");
+await page.waitForSelector(".scoreboard", { timeout: 30000 });
+console.log("  view partita: scoreboard renderizzato");
 
 // tab Calendario/Storico (step 3-4)
 for (const view of ["Calendario", "Storico"]) {
