@@ -36,7 +36,10 @@
   .view-tab.active{background:linear-gradient(90deg,#2563eb,#7c3aed);color:#fff;border-color:transparent}
   .giornate{display:flex;flex-direction:column;gap:10px}
   .giornata{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .giornata summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-weight:700;font-size:.9rem;list-style:none}
+  .giornata summary{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;font-weight:700;font-size:.9rem;list-style:none}
+  .giornata summary .g-date{flex:1;text-align:left;font-weight:400;color:var(--dim)}
+  .giornata summary .g-num{flex:0 0 auto}
+  .giornata summary .g-meta{flex:1;text-align:right}
   .giornata summary::-webkit-details-marker{display:none}
   .giornata summary::before{content:"▸";color:var(--dim);margin-right:2px}
   .giornata[open] summary::before{content:"▾"}
@@ -454,7 +457,7 @@ function seasonPanelHtml() {
   groups = groups.map((g) => ({ ...g, open: cup ? g.key === openKey : g.open, evs: g.evs.map((e) => dayRowHtml(e, cup ? null : dt(e))) }));
   if (!groups.length) return `<section class="panel"><h2>${title}</h2><p class="empty-msg">Nessuna giornata ${emptyTxt} in questa stagione.</p></section>`;
   const sec = (g) => `<details class="giornata" ${g.open ? "open" : ""}>
-    <summary>${esc(cup ? g.label : `Week ${g.n} · ${g.label}`)}<span class="g-meta">${esc(cup && S.view === "hist" ? `${g.evs.length} risultati` : g.meta)}</span></summary>
+    <summary>${cup ? `<span class="g-date">${esc(g.label)}</span>` : `<span class="g-date">${esc(g.label)}</span><b class="g-num">Week ${g.n}</b>`}<span class="g-meta">${esc(cup && S.view === "hist" ? `${g.evs.length} risultati` : g.meta)}</span></summary>
     <div class="day-list">${g.evs.join("")}</div>
   </details>`;
   return `<section class="panel"><h2>${title}</h2><div class="giornate">${groups.map(sec).join("")}</div></section>`;
