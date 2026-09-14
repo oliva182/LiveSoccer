@@ -134,7 +134,7 @@ function normalizeStats(box) {
   });
 }
 
-const friendlyErr = (e) => (e instanceof TypeError ? "Errore di rete verso ESPN." : String(e?.message || e));
+const friendlyErr = (e) => e instanceof TypeError && location.protocol === "file:" ? "Apri http://localhost:8080 (avvia prima: npm start) — l'app non funziona da file://." : e instanceof TypeError ? "Errore di rete verso ESPN." : String(e?.message || e);
 
 async function apply() {
   try {
