@@ -74,7 +74,7 @@ export function start(port = 8080) {
         res.writeHead(404, { "content-type": "text/plain" });
         return res.end("not found");
       }
-      res.writeHead(200, { "content-type": fp.endsWith(".js") ? "text/javascript" : "text/html" });
+      res.writeHead(200, { "content-type": fp.endsWith(".js") ? "text/javascript" : "text/html", "cache-control": "no-cache" });
       res.end(body);
     });
     srv.on("error", reject);
