@@ -436,11 +436,19 @@ function tabsHtml() {
   return `<div class="lg-tabs">${LEAGUES.map((l) => `<button type="button" class="lg-tab${S.league === l.slug ? " active" : ""}" data-league="${esc(l.slug)}">${esc(l.name)}</button>`).join("")}</div>`;
 }
 
+function currentGiornataN() {
+  const all = seasonGroupsAll();
+  const g = S.weekSel ? all.find((x) => x.key === S.weekSel) : all.find((x) => x.open);
+  return g ? g.n : null;
+}
+
 function viewTabsHtml() {
-  const views = isCup(S.league)
-    ? [["oggi", "Oggi"], ["cal", "Calendario"], ["hist", "Storico"]]
-    : [["oggi", "Week in corso"], ["cal", "Calendario"]];
-  return `<div class="view-tabs">${views.map(([k, label]) => `<button type="button" class="view-tab${S.view === k ? " active" : ""}" data-view="${k}">${label}</button>`).join("")}</div>`;
+  if (isCup(S.league)) {
+    const views = [["oggi", "Oggi"], ["cal", "Calendario"], ["hist", "Storico"]];
+    return `<div class="view-tabs">${views.map(([k, label]) => `<button type="button" class="view-tab${S.view === k ? " active" : ""}" data-view="${k}">${label}</button>`).join("")}</div>`;
+  }
+  const n = currentGiornataN();
+  return `<div class="view-tabs"><button type="button" class="view-tab${S.view === "oggi" ? " active" : ""}" data-view="oggi">Giornata in corso${n ? ` - ${n}` : ""}</button></div>`;
 }
 
 function seasonPanelHtml() {
@@ -551,12 +559,12 @@ function weekPanelHtml() {
   const prev = idx > 0 ? all[idx - 1] : null;
   const next = g ? (idx + 1 < all.length ? all[idx + 1] : null) : (idx < all.length ? all[idx] : null);
   const navBtn = (dir, key, label) => `<button type="button" class="lg-tab" data-nav="${dir}"${key ? ` data-key="${esc(key)}"` : " disabled"}>${label}</button>`;
-  const nav = `<div class="wk-nav">${navBtn("prev", prev?.key, "‹ Giornata precedente")}${navBtn("next", next?.key, "Giornata successiva ›")}</div>`;
+  const nav = `<div class="wk-nav">${navBtn("prev", prev?.key, "‹ Giornata precedente")}<button type="button" class="lg-tab" data-nav="cal">Calendario</button>${navBtn("next", next?.key, "Giornata successiva ›")}</div>`;
   const title = g ? `Giornata ${g.n} · ${g.label}` : "Nessuna partita in questa settimana";
   const body = g
     ? `<div class="wk-cur"><b>${esc(title)}</b><span class="g-meta">${esc(g.meta)}</span></div><div class="day-list">${g.evs.map((e) => dayRowHtml(e, dt(e))).join("")}</div>`
     : `<p class="empty-msg">Nessuna partita in questa settimana.</p>`;
-  return `<section class="panel"><h2>Week in corso · ${esc(leagueName(S.league))}</h2>${nav}${body}</section>`;
+  return `<section class="panel"><h2>Giornata in corso · ${esc(leagueName(S.league))}</h2>${nav}${body}</section>`;
 }
 
 function renderLanding() {
@@ -812,7 +820,7 @@ function wireActions() {
   }
   for (const t of app.querySelectorAll(".lg-tab:not([data-nav])")) t.addEventListener("click", () => switchLeague(t.dataset.league));
   for (const v of app.querySelectorAll(".view-tab")) v.addEventListener("click", () => switchView(v.dataset.view));
-  for (const n of app.querySelectorAll("[data-nav]")) n.addEventListener("click", () => { S.weekSel = n.dataset.key; render(); });
+  for (const n of app.querySelectorAll("[data-nav]")) n.addEventListener("click", () => (n.dataset.nav === "cal" ? switchView("cal") : (S.weekSel = n.dataset.key, render())));
   const back = app.querySelector('[data-act="back"]');
   if (back) back.addEventListener("click", goBack);
   const retry = app.querySelector('[data-act="retry"]');
