@@ -9,6 +9,7 @@
     --bg:#0b0f1a; --panel:#121a2b; --panel-2:#182136; --line:#232e47;
     --txt:#e8edf7; --dim:#8b96ad; --acc:#3fb6ff; --gold:#ffd76a;
     --ok:#4ade80; --bad:#f87171;
+    --zebra:rgba(255,255,255,.04); --zone-uecl:#3FD4C4; --zone-rp:#FFB454; --zone-uel:#A78BFA;
   }
   html{font-size:17px}
   *{box-sizing:border-box;margin:0;padding:0}
@@ -56,7 +57,7 @@
   table.cls th{color:var(--dim);font-size:.72rem;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--line)}
   table.cls th:first-child,table.cls td:first-child{padding-left:4px}
   table.cls thead th{position:sticky;top:0;background:var(--panel);z-index:1}
-  table.cls tbody tr:nth-child(odd){background:rgba(255,255,255,.02)}
+  table.cls tbody tr:nth-child(odd){background:var(--zebra)}
   td.team-cell{text-align:left;font-weight:600;max-width:240px;overflow:hidden;text-overflow:ellipsis}
   td.pts{font-weight:700}
   .zone-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
@@ -154,7 +155,7 @@
   @keyframes cartoonPop{0%{color:var(--gold);transform:scale(1.4) rotate(-4deg)}100%{transform:none}}
   @keyframes inkWiggle{0%{color:var(--bad);transform:rotate(-3deg) scale(1.25)}60%{transform:rotate(2deg)}100%{transform:none}}
 
-  html[data-theme="cartoon"]{--bg:#fdf3d8;--panel:#fffdf7;--panel-2:#ffefc2;--line:#1a1a1a;--txt:#1a1a1a;--dim:#6b6475;--acc:#ff6b35;--gold:#ffd400;--ok:#2ec27e;--bad:#ff3b3b}
+  html[data-theme="cartoon"]{--bg:#fdf3d8;--panel:#fffdf7;--panel-2:#ffefc2;--line:#1a1a1a;--txt:#1a1a1a;--dim:#6b6475;--acc:#ff6b35;--gold:#ffd400;--ok:#2ec27e;--bad:#ff3b3b;--zebra:rgba(26,26,26,.04);--zone-uecl:#0E9488;--zone-rp:#E69500;--zone-uel:#7C3AED}
   html[data-theme="cartoon"] body{font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;background:repeating-linear-gradient(45deg,var(--bg) 0 26px,#fbeec9 26px 52px)}
   html[data-theme="cartoon"] .scoreboard,html[data-theme="cartoon"] .panel,html[data-theme="cartoon"] .foot{border-width:3px}
   html[data-theme="cartoon"] .scoreboard{box-shadow:6px 6px 0 rgba(26,26,26,.9)}
@@ -165,7 +166,7 @@
   html[data-theme="cartoon"] .live .dot,html[data-theme="cartoon"] .st.live::before{animation:cartoonPulse 1.2s infinite;background:var(--bad)}
   html[data-theme="cartoon"] .flash-score{animation-name:cartoonPop}
 
-  html[data-theme="sketch"]{--bg:#f4eee0;--panel:#fffcf5;--panel-2:#f3ecd9;--line:#b7a98c;--txt:#262630;--dim:#7d7668;--acc:#d0561e;--gold:#a9780a;--ok:#2e7d32;--bad:#c0392b}
+  html[data-theme="sketch"]{--bg:#f4eee0;--panel:#fffcf5;--panel-2:#f3ecd9;--line:#b7a98c;--txt:#262630;--dim:#7d7668;--acc:#d0561e;--gold:#a9780a;--ok:#2e7d32;--bad:#c0392b;--zebra:rgba(38,38,48,.04);--zone-uecl:#2E8B7D;--zone-rp:#B7791F;--zone-uel:#6B46C1}
   html[data-theme="sketch"] body{font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;background:var(--bg)}
   html[data-theme="sketch"] .panel,html[data-theme="sketch"] .scoreboard,html[data-theme="sketch"] .day-row,html[data-theme="sketch"] .foot{border-width:2px;border-radius:14px 25px 16px 26px/25px 14px 27px 15px}
   html[data-theme="sketch"] .scoreboard{box-shadow:3px 4px 0 rgba(38,38,48,.18)}
@@ -509,9 +510,18 @@ function statVal(entry, name) {
   const s = (entry.stats || []).find((x) => x.name === name);
   return s ? s.displayValue : null;
 }
+const ZONE_COLOR = {
+  "Europa League": "var(--zone-uel)",
+  "Conference League": "var(--zone-uecl)",
+  "Conference League qualifying": "var(--zone-uecl)",
+  "Relegation playoff": "var(--zone-rp)",
+  "Relegation": "var(--bad)",
+  "Relegated": "var(--bad)",
+}; // ponytail: solo le zone da differenziare; il resto resta colore ESPN (fallback)
 function zoneOf(entry) {
   const d = entry.note?.description || "";
-  return { desc: d, color: d === "Knockout phase playoffs - seeded" ? "#FF9E2C" : (entry.note?.color || "") };
+  const raw = d === "Knockout phase playoffs - seeded" ? "#FF9E2C" : (ZONE_COLOR[d] || entry.note?.color || "");
+  return { desc: d, color: raw.replace(/^#+/, "#") }; // sanitize "##B5E7CE" (bug dati ESPN eng.1)
 }
 
 function standingsPanelHtml() {
@@ -523,7 +533,8 @@ function standingsPanelHtml() {
   const legend = zones.length ? `<div class="zone-legend">${zones.map((z) => `<span><i class="zone-dot" style="background:${esc(z.color)}"></i>${esc(z.desc)}</span>`).join("")}</div>` : "";
   const rows = entries.map((e, i) => {
     const t = e.team || {}; const z = zoneOf(e);
-    return `<tr><td><i class="zone-dot" style="background:${esc(z.color)}"></i>${i + 1}</td>
+    const dot = z.color ? `<i class="zone-dot" style="background:${esc(z.color)}"></i>` : "";
+    return `<tr><td>${dot}${i + 1}</td>
       <td class="team-cell" title="${esc(t.name || "")}">${esc(t.shortDisplayName || t.name || "?")}</td>
       <td>${esc(statVal(e, "gamesPlayed") ?? "")}</td><td>${esc(statVal(e, "wins") ?? "")}</td>
       <td>${esc(statVal(e, "ties") ?? "")}</td><td>${esc(statVal(e, "losses") ?? "")}</td>

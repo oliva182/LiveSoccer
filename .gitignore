@@ -1,0 +1,5 @@
+# tooling artifacts
+.fra_*.json
+.playwright-cli/
+*-check.png
+shots/
