@@ -43,6 +43,9 @@
   .g-meta{font-weight:400;font-size:.78rem;color:var(--dim);text-transform:none;letter-spacing:.3px}
   .giornata .day-list{padding:4px 12px 12px}
   .empty-msg{text-align:center;padding:28px 10px;color:var(--dim)}
+  .wk-cur{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;font-size:.95rem}
+  .wk-nav{display:flex;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .lg-tab:disabled{opacity:.4;cursor:default}
 
   .tbl-wrap{overflow:auto;max-height:430px}
   table.cls{width:100%;border-collapse:collapse;font-size:.9rem;min-width:480px}
@@ -179,15 +182,16 @@
 <script>
 "use strict";
 /* ===== Calcio Live — dashboard live ESPN Soccer (vanilla JS, no deps) ===== */
+/* exp = partite per giornata (squadre/2): Serie A/PL/La Liga 20 squadre → 10, Bundesliga/Ligue 1 18 → 9 */
 const LEAGUES = [
   { slug: "uefa.champions", name: "Champions League" },
   { slug: "uefa.europa", name: "Europa League" },
   { slug: "uefa.europa.conf", name: "Conference League" },
-  { slug: "ita.1", name: "Serie A" },
-  { slug: "eng.1", name: "Premier League" },
-  { slug: "esp.1", name: "La Liga" },
-  { slug: "ger.1", name: "Bundesliga" },
-  { slug: "fra.1", name: "Ligue 1" },
+  { slug: "ita.1", name: "Serie A", exp: 10 },
+  { slug: "eng.1", name: "Premier League", exp: 10 },
+  { slug: "esp.1", name: "La Liga", exp: 10 },
+  { slug: "ger.1", name: "Bundesliga", exp: 9 },
+  { slug: "fra.1", name: "Ligue 1", exp: 9 },
 ];
 const STANDINGS_TTL = 15 * 60 * 1000;
 // fetch diretto: site.web.api.espn.com è l'host ESPN che risponde al browser (200 + CORS *) — nessun server
@@ -198,11 +202,11 @@ const GONE_MSG = "L'evento ESPN non è più disponibile.";
 const OFFSETS = [0, -1, 1, -2, 2];
 
 const S = {
-  matchId: null, sport: null, league: LEAGUES[0].slug,
+  matchId: null, sport: null, league: "ita.1",
   match: null, summary: null, stats: null, standings: null,
   pollMs: 60000, calls: 0, lastUpdated: null, error: null, lastScore: null,
   events: [], dayOffset: 0, landingReady: false,
-  view: "oggi", season: null,
+  view: "oggi", season: null, weekSel: null,
 };
 let pollTimer = null, cdTimer = null;
 
@@ -232,6 +236,7 @@ const THEMES = [
   { slug: "cartoon", label: "Cartoon" },
   { slug: "sketch", label: "Sketch" },
 ];
+const isCup = (slug) => String(slug || "").startsWith("uefa.");
 function currentTheme() { return THEMES.some((t) => t.slug === ssGet(SS_THEME)) ? ssGet(SS_THEME) : "stadio"; }
 function setTheme(t) { document.documentElement.dataset.theme = t; ssSet(SS_THEME, t); const s = el("themeSel"); if (s) s.value = t; }
 
@@ -261,47 +266,59 @@ async function loadSeason() {
   S.season = { slug: S.league, at: Date.now(), events: data.events || [] };
 }
 
-/* Giornata: leghe ven→lun, coppe europee mar→gio (ESPN non espone il numero di giornata) */
+/* Giornata: leghe ven→lun, coppe europee mar→gio */
 const weekKey = (d, sport) => { const dt = new Date(d); const start = sport.startsWith("uefa.") ? 2 : 5; const day = (dt.getUTCDay() - start + 7) % 7; dt.setUTCDate(dt.getUTCDate() - day); return dt.toISOString().slice(0, 10); };
 const todayKey = () => weekKey(new Date(), S.league);
 const dayFmt = (d) => new Date(d).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 
-function seasonGroups(kind) {
+function seasonGroupsAll() {
   const evs = S.season && S.season.slug === S.league ? S.season.events : [];
-  const tk = todayKey();
   const map = new Map();
   for (const ev of evs) {
     const k = weekKey(ev.date, S.league);
-    if (kind === "cal" ? k < tk : k >= tk) continue;
     (map.get(k) || map.set(k, []).get(k)).push(ev);
   }
-  const groups = [...map.entries()].sort((a, b) => (kind === "cal" ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0])));
-  const firstKey = groups[0]?.[0];
-  return groups.map(([key, evs]) => {
+  // Turno infrasettimanale: una week con 2x partite (es. 20 in Serie A) si divide in giornate da `exp` partite
+  // (le prime restano, il resto diventa la week successiva facendo scalare il numeramento)
+  const exp = (LEAGUES.find((l) => l.slug === S.league) || {}).exp || 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const flat = [];
+  for (const [key, evs] of [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     evs.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const live = evs.filter((e) => e.competitions?.[0]?.status?.type?.state === "in").length;
-    const d0 = new Date(evs[0].date), d1 = new Date(evs[evs.length - 1].date);
+    const step = exp || evs.length;
+    for (let i = 0; i < evs.length; i += step) flat.push({ key: i ? `${key}-${i / step + 1}` : key, evs: evs.slice(i, i + step) });
+  }
+  const openIdx = flat.reduce((acc, g, i) => (g.evs[0].date.slice(0, 10) <= todayStr ? i : acc), -1);
+  return flat.map((g, i) => {
+    const live = g.evs.filter((e) => e.competitions?.[0]?.status?.type?.state === "in").length;
+    const d0 = new Date(g.evs[0].date), d1 = new Date(g.evs[g.evs.length - 1].date);
     const label = d0.toISOString().slice(0, 10) === d1.toISOString().slice(0, 10) ? dayFmt(d0) : `${dayFmt(d0)} – ${dayFmt(d1)}`;
-    const meta = live ? `${evs.length} partite · ${live} in corso` : (kind === "hist" ? `${evs.length} risultati` : `${evs.length} partite`);
-    return { key, label, meta, evs, open: kind === "cal" ? key === tk : key === firstKey };
+    const meta = live ? `${g.evs.length} partite · ${live} in corso` : `${g.evs.length} partite`;
+    return { key: g.key, n: i + 1, label, meta, evs: g.evs, open: i === openIdx };
   });
 }
 
-async function loadLanding() {
-  if (S.view !== "oggi") { await loadSeason(); S.landingReady = true; S.lastUpdated = new Date(); return; }
-  const day = await fetchDay(S.league, 0);
-  let entries = [];
+async function loadStandings() {
   const c = S.standings;
-  if (c && c.slug === S.league && Date.now() - c.at < STANDINGS_TTL) entries = c.entries;
-  else {
-    try {
-      const st = await apiGet(STANDINGS_URL(S.league));
-      entries = (st.children?.[0]?.standings?.entries) || [];
-      S.standings = { slug: S.league, at: Date.now(), entries };
-    } catch (_) { /* §12: errore classifica ignorato */ }
+  if (c && c.slug === S.league && Date.now() - c.at < STANDINGS_TTL) return;
+  try {
+    const st = await apiGet(STANDINGS_URL(S.league));
+    S.standings = { slug: S.league, at: Date.now(), entries: (st.children?.[0]?.standings?.entries) || [] };
+  } catch (_) { /* §12: errore classifica ignorato */ }
+}
+
+async function loadLanding() {
+  if (S.view === "oggi" && isCup(S.league)) {
+    const day = await fetchDay(S.league, 0);
+    await loadStandings();
+    S.events = [day];
+    S.dayOffset = 0;
+    S.landingReady = true;
+    S.lastUpdated = new Date();
+    return;
   }
-  S.events = [day];
-  S.dayOffset = 0;
+  await loadSeason();
+  if (S.view === "oggi") await loadStandings();
   S.landingReady = true;
   S.lastUpdated = new Date();
 }
@@ -380,8 +397,10 @@ async function boot() {
   if (urlEv) ssSet(SS_EVENT, urlEv);
   S.matchId = ssGet(SS_EVENT) || null;
   S.sport = validLeag(ssGet(SS_SPORT));
-  S.league = validLeag(ssGet(SS_LEAGUE)) || LEAGUES[0].slug;
+  S.league = validLeag(ssGet(SS_LEAGUE)) || "ita.1";
   S.view = ["oggi", "cal", "hist"].includes(ssGet(SS_VIEW)) ? ssGet(SS_VIEW) : "oggi";
+  if (!isCup(S.league) && S.view === "hist") { S.view = "oggi"; ssSet(SS_VIEW, "oggi"); }
+  S.weekSel = null;
   render();
   if (S.matchId) {
     if (S.view !== "oggi") await loadSeason().catch(() => {});
@@ -415,23 +434,33 @@ function tabsHtml() {
 }
 
 function viewTabsHtml() {
-  const views = [["oggi", "Oggi"], ["cal", "Calendario"], ["hist", "Storico"]];
+  const views = isCup(S.league)
+    ? [["oggi", "Oggi"], ["cal", "Calendario"], ["hist", "Storico"]]
+    : [["oggi", "Week in corso"], ["cal", "Calendario"]];
   return `<div class="view-tabs">${views.map(([k, label]) => `<button type="button" class="view-tab${S.view === k ? " active" : ""}" data-view="${k}">${label}</button>`).join("")}</div>`;
 }
 
 function seasonPanelHtml() {
-  const kind = S.view;
-  const title = kind === "cal" ? `Calendario · ${esc(leagueName(S.league))}` : `Storico · ${esc(leagueName(S.league))}`;
-  const groups = seasonGroups(kind);
-  if (!groups.length) return `<section class="panel"><h2>${title}</h2><p class="empty-msg">Nessuna giornata ${kind === "cal" ? "prossima" : "registrata"} in questa stagione.</p></section>`;
+  const cup = isCup(S.league);
+  const title = cup && S.view === "hist" ? `Storico · ${esc(leagueName(S.league))}` : `Calendario · ${esc(leagueName(S.league))}`;
+  const all = seasonGroupsAll();
+  const tk = todayKey();
+  let groups, openKey, emptyTxt;
+  if (cup) {
+    if (S.view === "cal") { groups = all.filter((g) => g.key >= tk); openKey = tk; emptyTxt = "prossima"; }
+    else { groups = all.filter((g) => g.key < tk).reverse(); openKey = groups[0]?.key; emptyTxt = "registrata"; }
+  } else { groups = all; openKey = tk; emptyTxt = "prossima"; }
+  const dt = (ev) => (ev.date ? `${new Date(ev.date).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · ${kickoffTime(ev.date)}` : "");
+  groups = groups.map((g) => ({ ...g, open: cup ? g.key === openKey : g.open, evs: g.evs.map((e) => dayRowHtml(e, cup ? null : dt(e))) }));
+  if (!groups.length) return `<section class="panel"><h2>${title}</h2><p class="empty-msg">Nessuna giornata ${emptyTxt} in questa stagione.</p></section>`;
   const sec = (g) => `<details class="giornata" ${g.open ? "open" : ""}>
-    <summary>${esc(g.label)}<span class="g-meta">${esc(g.meta)}</span></summary>
-    <div class="day-list">${g.evs.map(dayRowHtml).join("")}</div>
+    <summary>${esc(cup ? g.label : `Week ${g.n} · ${g.label}`)}<span class="g-meta">${esc(cup && S.view === "hist" ? `${g.evs.length} risultati` : g.meta)}</span></summary>
+    <div class="day-list">${g.evs.join("")}</div>
   </details>`;
   return `<section class="panel"><h2>${title}</h2><div class="giornate">${groups.map(sec).join("")}</div></section>`;
 }
 
-function dayRowHtml(ev) {
+function dayRowHtml(ev, dt) {
   const comp = ev.competitions?.[0];
   const home = comp?.competitors?.find((c) => c.homeAway === "home");
   const away = comp?.competitors?.find((c) => c.homeAway === "away");
@@ -440,7 +469,8 @@ function dayRowHtml(ev) {
   const liveClock = st.state === "in" && st.displayClock ? ` · ${esc(st.displayClock)}` : "";
   let statusBadge, scoreCell;
   if (st.state === "in") { statusBadge = `<span class="st live">In corso${liveClock}</span>`; scoreCell = `${home?.score ?? 0} : ${away?.score ?? 0}`; }
-  else if (st.state === "post") { statusBadge = `<span class="st">Finale</span>`; scoreCell = `${home?.score ?? 0} : ${away?.score ?? 0}`; }
+  else if (st.state === "post") { statusBadge = dt ? `<span class="st">${esc(dt)}</span>` : `<span class="st">Finale</span>`; scoreCell = `${home?.score ?? 0} : ${away?.score ?? 0}`; }
+  else if (dt) { statusBadge = `<span class="st">${esc(dt)}</span>`; scoreCell = ""; }
   else { statusBadge = `<span class="st">${date ? esc(kickoffTime(date)) : ""}</span>`; scoreCell = date ? esc(kickoffTime(date)) : ""; }
   const teamLine = (c) => `<div class="dr-team">${c?.team?.logo ? `<img src="${esc(c.team.logo)}" alt="">` : ""}<span>${esc(c?.team?.displayName || "?")}</span></div>`;
   return `<div class="day-row" role="button" tabindex="0" data-match="${esc(String(ev.id))}">
@@ -508,10 +538,28 @@ function footerHtml() {
   </div>`;
 }
 
+function weekPanelHtml() {
+  const all = seasonGroupsAll();
+  const tk = todayKey();
+  const dt = (ev) => (ev.date ? `${new Date(ev.date).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" })} · ${kickoffTime(ev.date)}` : "");
+  let idx = all.findIndex((g) => (S.weekSel ? g.key === S.weekSel : g.open));
+  if (idx < 0) { idx = all.findIndex((g) => g.key > tk); if (idx < 0) idx = all.length; }
+  const g = idx < all.length && (S.weekSel ? all[idx].key === S.weekSel : all[idx].open) ? all[idx] : null;
+  const prev = idx > 0 ? all[idx - 1] : null;
+  const next = g ? (idx + 1 < all.length ? all[idx + 1] : null) : (idx < all.length ? all[idx] : null);
+  const navBtn = (dir, key, label) => `<button type="button" class="lg-tab" data-nav="${dir}"${key ? ` data-key="${esc(key)}"` : " disabled"}>${label}</button>`;
+  const nav = `<div class="wk-nav">${navBtn("prev", prev?.key, "‹ Giornata precedente")}${navBtn("next", next?.key, "Giornata successiva ›")}</div>`;
+  const title = g ? `Week ${g.n} · ${g.label}` : "Nessuna partita in questa settimana";
+  const body = g
+    ? `<div class="wk-cur"><b>${esc(title)}</b><span class="g-meta">${esc(g.meta)}</span></div><div class="day-list">${g.evs.map((e) => dayRowHtml(e, dt(e))).join("")}</div>`
+    : `<p class="empty-msg">Nessuna partita in questa settimana.</p>`;
+  return `<section class="panel"><h2>Week in corso · ${esc(leagueName(S.league))}</h2>${nav}${body}</section>`;
+}
+
 function renderLanding() {
   let h = tabsHtml() + viewTabsHtml();
   if (!S.landingReady) h += bootPanelHtml();
-  else if (S.view === "oggi") h += dayPanelHtml() + standingsPanelHtml() + errBannerHtml();
+  else if (S.view === "oggi") h += (isCup(S.league) ? dayPanelHtml() : weekPanelHtml()) + standingsPanelHtml() + errBannerHtml();
   else h += seasonPanelHtml() + errBannerHtml();
   h += footerHtml();
   return h;
@@ -759,8 +807,9 @@ function wireActions() {
     row.addEventListener("click", () => openMatch(row.dataset.match));
     row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMatch(row.dataset.match); } });
   }
-  for (const t of app.querySelectorAll(".lg-tab")) t.addEventListener("click", () => switchLeague(t.dataset.league));
+  for (const t of app.querySelectorAll(".lg-tab:not([data-nav])")) t.addEventListener("click", () => switchLeague(t.dataset.league));
   for (const v of app.querySelectorAll(".view-tab")) v.addEventListener("click", () => switchView(v.dataset.view));
+  for (const n of app.querySelectorAll("[data-nav]")) n.addEventListener("click", () => { S.weekSel = n.dataset.key; render(); });
   const back = app.querySelector('[data-act="back"]');
   if (back) back.addEventListener("click", goBack);
   const retry = app.querySelector('[data-act="retry"]');
@@ -775,14 +824,15 @@ function wireActions() {
 
 function switchLeague(slug) {
   S.league = slug; ssSet(SS_LEAGUE, slug);
-  S.events = []; S.landingReady = false;
+  S.events = []; S.landingReady = false; S.weekSel = null;
+  if (!isCup(slug) && S.view === "hist") { S.view = "oggi"; ssSet(SS_VIEW, "oggi"); }
   apply();
 }
 
 function switchView(view) {
   if (S.view === view) return;
   S.view = view; ssSet(SS_VIEW, view);
-  S.landingReady = false;
+  S.landingReady = false; S.weekSel = null;
   apply();
 }
 
