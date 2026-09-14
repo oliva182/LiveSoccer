@@ -70,6 +70,13 @@ for (const view of ["Calendario", "Storico"]) {
   }
 }
 
+// un 404 (es. favicon) non deve uccidere il server
+{
+  const a = await fetch(`http://127.0.0.1:${server.address().port}/nope-404`);
+  const b = await fetch(`http://127.0.0.1:${server.address().port}/`);
+  if (a.status !== 404 || b.status !== 200) fail(`server morto dopo 404 (404=${a.status}, follow-up=${b.status})`);
+}
+
 const realErrors = consoleErrors.filter((t) => !/net::|Failed to load resource/i.test(t));
 if (realErrors.length) fail("console errors: " + realErrors.slice(0, 3).join(" ;; "));
 

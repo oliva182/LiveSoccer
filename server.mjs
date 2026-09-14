@@ -69,13 +69,13 @@ export function start(port = 8080) {
       const file = url.pathname === "/" ? "/index.html" : url.pathname;
       const fp = path.normalize(path.join(root, file));
       if (!fp.startsWith(root)) { res.writeHead(403); return res.end(); }
-      try {
-        res.writeHead(200, { "content-type": fp.endsWith(".js") ? "text/javascript" : "text/html" });
-        res.end(fs.readFileSync(fp));
-      } catch {
+      let body;
+      try { body = fs.readFileSync(fp); } catch {
         res.writeHead(404, { "content-type": "text/plain" });
-        res.end("not found");
+        return res.end("not found");
       }
+      res.writeHead(200, { "content-type": fp.endsWith(".js") ? "text/javascript" : "text/html" });
+      res.end(body);
     });
     srv.on("error", reject);
     srv.listen(port, "127.0.0.1", () => resolve(srv));
