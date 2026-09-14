@@ -82,8 +82,9 @@ async function loadSeason() {
   S.season = { slug: S.league, at: Date.now(), events: data.events || [] };
 }
 
-const weekKey = (d) => { const dt = new Date(d); const day = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - day); return dt.toISOString().slice(0, 10); };
-const todayKey = () => weekKey(new Date());
+/* Giornata: leghe ven→lun, coppe europee mar→gio (ESPN non espone il numero di giornata) */
+const weekKey = (d, sport) => { const dt = new Date(d); const start = sport.startsWith("uefa.") ? 2 : 5; const day = (dt.getUTCDay() - start + 7) % 7; dt.setUTCDate(dt.getUTCDate() - day); return dt.toISOString().slice(0, 10); };
+const todayKey = () => weekKey(new Date(), S.league);
 const dayFmt = (d) => new Date(d).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 
 function seasonGroups(kind) {
@@ -91,7 +92,7 @@ function seasonGroups(kind) {
   const tk = todayKey();
   const map = new Map();
   for (const ev of evs) {
-    const k = weekKey(ev.date);
+    const k = weekKey(ev.date, S.league);
     if (kind === "cal" ? k < tk : k >= tk) continue;
     (map.get(k) || map.set(k, []).get(k)).push(ev);
   }
