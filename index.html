@@ -149,22 +149,28 @@
   @keyframes scorepop{0%{transform:scale(1.35);color:var(--gold)}100%{transform:scale(1)}}
   .muted{color:var(--dim);font-size:.9rem;text-align:center;padding:26px}
   .err{color:var(--bad);font-size:.85rem;margin-top:10px;min-height:1.2em}
-  /* ===== temi extra: cartoon / sketch (default = stadio, §13.1) ===== */
+  /* ===== temi extra: matrix / sketch (default = stadio, §13.1) ===== */
   @keyframes blinkSoft{0%,100%{opacity:1}50%{opacity:.3}}
-  @keyframes cartoonPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.7)}}
-  @keyframes cartoonPop{0%{color:var(--gold);transform:scale(1.4) rotate(-4deg)}100%{transform:none}}
+  @keyframes matrixPop{0%{color:var(--gold);transform:scale(1.4);text-shadow:0 0 14px rgba(0,255,65,.9)}100%{transform:none}}
   @keyframes inkWiggle{0%{color:var(--bad);transform:rotate(-3deg) scale(1.25)}60%{transform:rotate(2deg)}100%{transform:none}}
 
-  html[data-theme="cartoon"]{--bg:#fdf3d8;--panel:#fffdf7;--panel-2:#ffefc2;--line:#1a1a1a;--txt:#1a1a1a;--dim:#6b6475;--acc:#ff6b35;--gold:#ffd400;--ok:#2ec27e;--bad:#ff3b3b;--zebra:rgba(26,26,26,.04);--zone-uecl:#0E9488;--zone-rp:#E69500;--zone-uel:#7C3AED}
-  html[data-theme="cartoon"] body{font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;background:repeating-linear-gradient(45deg,var(--bg) 0 26px,#fbeec9 26px 52px)}
-  html[data-theme="cartoon"] .scoreboard,html[data-theme="cartoon"] .panel,html[data-theme="cartoon"] .foot{border-width:3px}
-  html[data-theme="cartoon"] .scoreboard{box-shadow:6px 6px 0 rgba(26,26,26,.9)}
-  html[data-theme="cartoon"] .status-pill,html[data-theme="cartoon"] .lg-tab,html[data-theme="cartoon"] .bar,html[data-theme="cartoon"] .foot select{background:#fffdf7}
-  html[data-theme="cartoon"] .lg-tab.active{background:var(--acc);color:#fff;border-color:#1a1a1a}
-  html[data-theme="cartoon"] button{background:var(--gold);border:2px solid #1a1a1a;color:#1a1a1a;box-shadow:3px 3px 0 rgba(26,26,26,.9)}
-  html[data-theme="cartoon"] .bar .r{background:#3aa0ff}
-  html[data-theme="cartoon"] .live .dot,html[data-theme="cartoon"] .st.live::before{animation:cartoonPulse 1.2s infinite;background:var(--bad)}
-  html[data-theme="cartoon"] .flash-score{animation-name:cartoonPop}
+  html[data-theme="matrix"]{--bg:#010701;--panel:#04130a;--panel-2:#062012;--line:#0e4d2a;--txt:#3aff7d;--dim:#1fa153;--acc:#00ff41;--gold:#c8ff4f;--ok:#00e676;--bad:#ff4d4d;--zebra:rgba(0,255,65,.05);--zone-uel:#B388FF;--zone-uecl:#00E5FF;--zone-rp:#FFB300}
+  html[data-theme="matrix"] body{font-family:"Cascadia Code",Consolas,"Courier New",monospace;background:radial-gradient(1000px 500px at 50% -10%,#042b12 0%,var(--bg) 65%);text-shadow:0 0 6px rgba(0,255,65,.35)}
+  html[data-theme="matrix"] body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;background:repeating-linear-gradient(0deg,rgba(0,255,65,.03) 0 2px,transparent 2px 4px)}
+  html[data-theme="matrix"] .scoreboard,html[data-theme="matrix"] .panel,html[data-theme="matrix"] .foot{border-radius:8px;border-color:var(--line)}
+  html[data-theme="matrix"] .scoreboard{box-shadow:0 0 24px rgba(0,255,65,.15)}
+  html[data-theme="matrix"] .status-pill,html[data-theme="matrix"] .lg-tab,html[data-theme="matrix"] .bar,html[data-theme="matrix"] .foot select,html[data-theme="matrix"] input[type=password]{background:#021208}
+  html[data-theme="matrix"] .status-pill,html[data-theme="matrix"] .foot select{color:var(--txt)}
+  html[data-theme="matrix"] .lg-tab.active,html[data-theme="matrix"] .view-tab.active{background:var(--acc);color:#001807;border-color:transparent;text-shadow:none}
+  html[data-theme="matrix"] button{background:var(--acc);color:#001807;border:1px solid var(--acc);box-shadow:0 0 12px rgba(0,255,65,.5)}
+  /* i tab (leghe/coppe, calendario, giornata prec/succ, view) sono <button>: riprendi stile tab leggibile */
+  html[data-theme="matrix"] .lg-tab,html[data-theme="matrix"] .view-tab{background:var(--panel-2);color:var(--txt);border:1px solid var(--line);box-shadow:none;text-shadow:0 0 6px rgba(0,255,65,.35)}
+  html[data-theme="matrix"] .backbtn{background:none;border:none;box-shadow:none;color:var(--acc)}
+  html[data-theme="matrix"] .bar .r{background:var(--zone-uel)}
+  html[data-theme="matrix"] .day-row:hover,html[data-theme="matrix"] .day-row:focus{background:#072814;border-color:var(--acc)}
+  html[data-theme="matrix"] .live .dot,html[data-theme="matrix"] .st.live::before{animation:blinkSoft 1.2s infinite}
+  html[data-theme="matrix"] .zone-dot{width:9px;height:9px;box-shadow:0 0 7px 1px rgba(255,255,255,.35)}
+  html[data-theme="matrix"] .flash-score{animation-name:matrixPop}
 
   html[data-theme="sketch"]{--bg:#f4eee0;--panel:#fffcf5;--panel-2:#f3ecd9;--line:#b7a98c;--txt:#262630;--dim:#7d7668;--acc:#d0561e;--gold:#a9780a;--ok:#2e7d32;--bad:#c0392b;--zebra:rgba(38,38,48,.04);--zone-uecl:#2E8B7D;--zone-rp:#B7791F;--zone-uel:#6B46C1}
   html[data-theme="sketch"] body{font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;background:var(--bg)}
@@ -240,7 +246,7 @@ const dtRome = (ev) => (ev.date ? `${new Date(ev.date).toLocaleDateString("it-IT
 /* ===== temi (extra rispetto alla spec §13.1) ===== */
 const THEMES = [
   { slug: "stadio", label: "Stadio" },
-  { slug: "cartoon", label: "Cartoon" },
+  { slug: "matrix", label: "Matrix" },
   { slug: "sketch", label: "Sketch" },
 ];
 const isCup = (slug) => String(slug || "").startsWith("uefa.");

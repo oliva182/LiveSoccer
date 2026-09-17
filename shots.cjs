@@ -5,7 +5,7 @@ const path = require("path");
 const OUT = process.argv[2] || "shots";
 const ASSERT = process.argv.includes("--assert");
 const LEAGUES = [["ita.1", "Serie A", "ita1"], ["eng.1", "Premier League", "eng1"], ["fra.1", "Ligue 1", "fra1"]];
-const THEMES = ["stadio", "cartoon", "sketch"];
+const THEMES = ["stadio", "matrix", "sketch"];
 const URL = "file:///E:/Download/IA/test/prova/qwen3.8_v2/index.html";
 
 (async () => {

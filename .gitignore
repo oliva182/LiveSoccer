@@ -3,3 +3,4 @@
 .playwright-cli/
 *-check.png
 shots/
+shots-matrix/
