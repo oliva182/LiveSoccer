@@ -233,7 +233,9 @@ async function apiGet(url) {
   return r.json();
 }
 const dateStr = (off) => { const d = new Date(Date.now() + off * 864e5); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`; };
-const kickoffTime = (d) => new Date(d).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+const kickoffTime = (d) => new Date(d).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Rome" });
+// data + orario inizio in formato 24H fuso Roma (es. "17/09 · 21:00")
+const dtRome = (ev) => (ev.date ? `${new Date(ev.date).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", timeZone: "Europe/Rome" })} · ${kickoffTime(ev.date)}` : "");
 
 /* ===== temi (extra rispetto alla spec §13.1) ===== */
 const THEMES = [
@@ -517,7 +519,8 @@ function dayPanelHtml() {
   const group = (S.events.find((g) => g.lg === S.league)) || { events: [] };
   const events = [...group.events].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (!events.length) return `<section class="panel"><h2>Partite di oggi · ${esc(leagueName(S.league))}</h2><p class="empty-msg">Spiacente, nessun match oggi!</p></section>`;
-  return `<section class="panel"><h2>Partite di oggi · ${esc(leagueName(S.league))}</h2><div class="day-list">${events.map(dayRowHtml).join("")}</div></section>`;
+  // ponytail: arrow wrapper — .map(fn) passerebbe l'indice di riga come 2o arg (dt) e la colonna destra mostrerebbe "1","2","3"…
+  return `<section class="panel"><h2>Partite di oggi · ${esc(leagueName(S.league))}</h2><div class="day-list">${events.map((e) => dayRowHtml(e, dtRome(e))).join("")}</div></section>`;
 }
 
 function statVal(entry, name) {
