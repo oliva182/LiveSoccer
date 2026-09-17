@@ -4,3 +4,9 @@
 *-check.png
 shots/
 shots-matrix/
+
+# audit responsive artifacts
+after/
+baseline/
+final/
+server.log
