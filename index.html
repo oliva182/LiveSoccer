@@ -200,6 +200,7 @@ const LEAGUES = [
 const STANDINGS_TTL = 15 * 60 * 1000;
 // fetch diretto: site.web.api.espn.com è l'host ESPN che risponde al browser (200 + CORS *) — nessun server
 const BASE = (slug) => `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}`;
+const ONDAYS = (slug) => `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${slug}/calendar/ondays?lang=en&region=us`;
 const STANDINGS_URL = (slug) => `https://site.web.api.espn.com/apis/v2/sports/soccer/${slug}/standings`;
 const SS_EVENT = "cldash_espn_event_id", SS_SPORT = "cldash_espn_sport", SS_LEAGUE = "cldash_espn_league", SS_THEME = "cldash_theme", SS_VIEW = "cldash_view";
 const GONE_MSG = "L'evento ESPN non è più disponibile.";
@@ -262,12 +263,25 @@ async function findEvent(id) {
 }
 
 /* ===== stagione (Calendario/Storico) ===== */
+// ESPN: il range di date `dates=YYYYMMDD-YYYYMMDD` non è più supportato (HTTP 400):
+// si usano i giorni di match della stagione corrente (core API) + un scoreboard per giorno.
 async function loadSeason() {
   if (S.season && S.season.slug === S.league && Date.now() - S.season.at < STANDINGS_TTL) return;
-  const now = new Date();
-  const y = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
-  const data = await apiGet(`${BASE(S.league)}/scoreboard?dates=${y}0701-${y + 1}0630&limit=500`);
-  S.season = { slug: S.league, at: Date.now(), events: data.events || [] };
+  const cal = await apiGet(ONDAYS(S.league));
+  const days = (cal.eventDate?.dates || []).map((d) => d.slice(0, 10));
+  const events = []; const seen = new Set(); let di = 0;
+  async function worker() {
+    while (di < days.length) {
+      const day = days[di++];
+      try {
+        const data = await apiGet(`${BASE(S.league)}/scoreboard?dates=${day.replace(/-/g, "")}&limit=100`);
+        for (const e of data.events || []) { const id = String(e.id); if (!seen.has(id)) { seen.add(id); events.push(e); } }
+      } catch (_) { /* giorno non raggiungibile: si salta */ }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(8, Math.max(1, days.length)) }, worker));
+  events.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  S.season = { slug: S.league, at: Date.now(), events };
 }
 
 /* Giornata: leghe ven→lun, coppe europee mar→gio */
